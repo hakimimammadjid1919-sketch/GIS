@@ -39,13 +39,13 @@
         }).addTo(map);
 
         // Custom car/bus icon
-        const carIcon = L.icon({
+        const motorIcon = L.icon({
             iconUrl: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgH2Z-wk4HF2585cfK3xPhHjW5OAzUXJHUCCCHttErcaMdndDSq5IZ03BpRQarxbHHULHcjV4SYg7GN747GKTN94tUP9VMpLO4NwD3rBU6dFKsbVTkArl6ZwQfIELXlITKcFDORbiJI2DBOX-MjK1CPAAo0D47xSxDeoTvtuBmIQfqj5vuJq8xmPmsx-HHs/s1600/bus.png',
             iconSize: [20, 38],
             iconAnchor: [10, 38], // anchor bottom center
         });
 
-        let carMarker = null;
+        let motorMarker = null;
         const trailPoints = [];
         const trailLine = L.polyline(trailPoints, { color: 'blue' }).addTo(map);
 
@@ -59,9 +59,9 @@
 
         client.on('connect', () => {
             console.log('Connected to MQTT broker');
-            client.subscribe('car/gps', (err) => { //<<<<<<<<UBAH TOPIK INI 'car/gps'
+            client.subscribe('Mio GT', (err) => { //<<<<<<<<UBAH TOPIK INI 'car/gps'
                 if (!err) {
-                    console.log('Subscribed to car/gps topic');
+                    console.log('Subscribed to Mio GT topic');
                 }
             });
         });
@@ -87,11 +87,11 @@
                 `;
 
                 // Update or create marker
-                if (carMarker) {
-                    carMarker.setLatLng([latitude, longitude]);
-                    carMarker.setPopupContent(popupContent);
+                if (motorMarker) {
+                    motorMarker.setLatLng([latitude, longitude]);
+                    motorMarker.setPopupContent(popupContent);
                 } else {
-                    carMarker = L.marker([latitude, longitude], { icon: carIcon })
+                    motorMarker = L.marker([latitude, longitude], { icon: motorIcon })
                         .addTo(map)
                         .bindPopup(popupContent);
                 }
