@@ -59,9 +59,9 @@
 
         client.on('connect', () => {
             console.log('Connected to MQTT broker');
-            client.subscribe('car/gps', (err) => { //<<<<<<<<UBAH TOPIK INI 'car/gps'
+            client.subscribe('Mio GT', (err) => { //<<<<<<<<UBAH TOPIK INI 'car/gps'
                 if (!err) {
-                    console.log('Subscribed to car/gps topic');
+                    console.log('Subscribed to Mio GT topic');
                 }
             });
         });
@@ -69,7 +69,7 @@
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                const { latitude, longitude, Penumpang, Wanita, Pria, Suhu, Baterai, Kecepatan } = data;
+                const { latitude, longitude } = data;
 
                 // Add to trail
                 trailPoints.push([latitude, longitude]);
@@ -78,12 +78,6 @@
                 // Create popup content
                 const popupContent = `
                     <b>Data Kendaraan</b><br>
-                    Penumpang: ${Penumpang || 0}<br>
-                    Wanita: ${Wanita || 0}<br>
-                    Pria: ${Pria || 0}<br>
-                    Suhu: ${Suhu || '--'}°C<br>
-                    Baterai: ${Baterai || '--'}%<br>
-                    Kecepatan: ${Kecepatan || '--'} km/jam
                 `;
 
                 // Update or create marker
