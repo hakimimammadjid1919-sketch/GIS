@@ -3,85 +3,371 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Car GPS Tracking</title>
+    <title>Vehicle GPS Tracking Simulation</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
         #map {
             height: 100vh;
             width: 100%;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 280px;
+        }
+        
+        .control-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button.stop {
+            background: #dc3545;
+        }
+        
+        button.stop:hover {
+            background: #c82333;
+        }
+        
+        .speed-control {
+            margin-bottom: 15px;
+        }
+        
+        .speed-control label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .speed-control input {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            min-width: 300px;
+        }
+        
+        .vehicle-info {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .vehicle-info:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .vehicle-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .label {
+            font-weight: 500;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    
+    <div class="control-panel">
+        <h3>🎮 Kontrol Simulasi</h3>
+        <div class="button-group">
+            <button id="startBtn">Mulai</button>
+            <button id="stopBtn" class="stop" disabled>Berhenti</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div class="speed-control">
+            <label for="speedSlider">Kecepatan: <span id="speedValue">1</span>x</label>
+            <input type="range" id="speedSlider" min="0.5" max="3" step="0.5" value="1">
+        </div>
+    </div>
+    
+    <div class="info-panel">
+        <div id="vehicleInfoContainer"></div>
+    </div>
+
     <script>
         // Initialize the map
-        const map = L.map('map').setView([-7.23177, 112.72837], 15); // Initial view at the first GPS point
+        const map = L.map('map').setView([-7.23177, 112.72837], 14);
+        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Define a custom car icon
-        const carIcon = L.icon({
-            
-			      iconUrl: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgH2Z-wk4HF2585cfK3xPhHjW5OAzUXJHUCCCHttErcaMdndDSq5IZ03BpRQarxbHHULHcjV4SYg7GN747GKTN94tUP9VMpLO4NwD3rBU6dFKsbVTkArl6ZwQfIELXlITKcFDORbiJI2DBOX-MjK1CPAAo0D47xSxDeoTvtuBmIQfqj5vuJq8xmPmsx-HHs/s1600/bus.png',
-            iconSize: [20, 38], // Size of the icon (width, height)
-            iconAnchor: [19, 19], // Point of the icon which corresponds to the marker's location
+        // Define vehicle icons
+        const motorcycleIcon = L.icon({
+            iconUrl: 'https://static.vecteezy.com/system/resources/previews/019/906/457/non_2x/motorcycle-graphic-clipart-design-free-png.png',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -14]
         });
 
-        // Marker for the car
-        let carMarker = null;
+        // Simulation data - Bisa diubah dengan route Anda
+        const simulationData = {
+            'motorcycle': {
+                name: '🏍️ Motor (Mio GT)',
+                icon: motorcycleIcon,
+                color: '#0000FF',
+                route: [
+                    { lat: -7.23300, lng: 112.72700, time: 0 },
+                    { lat: -7.23200, lng: 112.73100, time: 5 },
+                    { lat: -7.23100, lng: 112.73400, time: 10 },
+                    { lat: -7.23000, lng: 112.73700, time: 15 },
+                    { lat: -7.23100, lng: 112.74000, time: 20 }
+                ]
+            }
+        };
 
-        // Array to store the trail points
-        const trailPoints = [];
+        const vehicles = {};
+        let isRunning = false;
+        let animationSpeed = 1;
+        let startTime = 0;
 
-        // Polyline for the trail
-        const trailLine = L.polyline(trailPoints, { color: 'blue' }).addTo(map);
+        // Initialize vehicles
+        Object.keys(simulationData).forEach(key => {
+            const data = simulationData[key];
+            vehicles[key] = {
+                ...data,
+                marker: null,
+                trailLine: L.polyline([], {
+                    color: data.color,
+                    weight: 3,
+                    opacity: 0.6
+                }).addTo(map),
+                currentIndex: 0,
+                trailPoints: []
+            };
+        });
 
-        // MQTT Client Setup
-        // GANTI PAKE AKUN MQTT, ini contoh gratis
-		//#const client = mqtt.connect('wss://test.mosquitto.org:8081/mqtt', {
-		const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {	
-		username: '', // kalau ada di isi
-		password: '', // kalau ada di isi
-		protocol: 'wss', // Ensure WebSocket Secure (WSS) is used
-		rejectUnauthorized: true // Optional: Set to false if using self-signed certificates (not recommended for production)
-});
-        client.on('connect', () => {
-            console.log('Connected to MQTT broker'); 
-            client.subscribe('car/gps', (err) => { //<<<<<<<<UBAH TOPIK INI 'car/gps'
-                if (!err) {
-                    console.log('Subscribed to car/gps topic');
-                }
+        // Get max duration from all routes
+        function getMaxDuration() {
+            let max = 0;
+            Object.values(simulationData).forEach(data => {
+                const lastPoint = data.route[data.route.length - 1];
+                if (lastPoint.time > max) max = lastPoint.time;
             });
-        });
+            return max;
+        }
 
-        // Handle incoming GPS data
-        client.on('message', (topic, message) => {
-            const data = JSON.parse(message.toString());
-            const { latitude, longitude } = data;
+        // Interpolate position between two points
+        function interpolatePosition(point1, point2, progress) {
+            return {
+                lat: point1.lat + (point2.lat - point1.lat) * progress,
+                lng: point1.lng + (point2.lng - point1.lng) * progress
+            };
+        }
 
-            console.log(`Received GPS data: Latitude=${latitude}, Longitude=${longitude}`);
+        // Get current position of vehicle
+        function getVehiclePosition(vehicleKey, elapsedSeconds) {
+            const route = simulationData[vehicleKey].route;
+            
+            // Find which segment we're on
+            for (let i = 0; i < route.length - 1; i++) {
+                const currentPoint = route[i];
+                const nextPoint = route[i + 1];
+                
+                if (elapsedSeconds >= currentPoint.time && elapsedSeconds <= nextPoint.time) {
+                    const timeDiff = nextPoint.time - currentPoint.time;
+                    const progress = (elapsedSeconds - currentPoint.time) / timeDiff;
+                    return interpolatePosition(currentPoint, nextPoint, progress);
+                }
+            }
+            
+            // Return last point if we've gone past the end
+            const lastPoint = route[route.length - 1];
+            return { lat: lastPoint.lat, lng: lastPoint.lng };
+        }
 
-            // Add the new point to the trail
-            trailPoints.push([latitude, longitude]);
+        // Update vehicle positions
+        function updateVehicles() {
+            if (!isRunning) return;
 
-            // Update the trail polyline
-            trailLine.setLatLngs(trailPoints);
+            const elapsedSeconds = (Date.now() - startTime) / 1000 * animationSpeed;
+            const maxDuration = getMaxDuration();
 
-            // Update the car marker position
-            if (carMarker) {
-                carMarker.setLatLng([latitude, longitude]);
-            } else {
-                carMarker = L.marker([latitude, longitude], { icon: carIcon }).addTo(map);
+            if (elapsedSeconds > maxDuration) {
+                isRunning = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                return;
             }
 
-            // Center the map on the car's position
-            map.setView([latitude, longitude], 15);
+            Object.keys(vehicles).forEach(key => {
+                const vehicle = vehicles[key];
+                const pos = getVehiclePosition(key, elapsedSeconds);
+
+                // Update marker
+                if (vehicle.marker) {
+                    vehicle.marker.setLatLng([pos.lat, pos.lng]);
+                } else {
+                    vehicle.marker = L.marker([pos.lat, pos.lng], { icon: vehicle.icon })
+                        .bindPopup(`<b>${vehicle.name}</b>`)
+                        .addTo(map);
+                }
+
+                // Add to trail
+                vehicle.trailPoints.push([pos.lat, pos.lng]);
+                if (vehicle.trailPoints.length > 500) {
+                    vehicle.trailPoints.shift();
+                }
+                vehicle.trailLine.setLatLngs(vehicle.trailPoints);
+
+                // Center map on car
+                if (key === 'car') {
+                    map.setView([pos.lat, pos.lng], 15);
+                }
+            });
+
+            updateInfoPanel(elapsedSeconds);
+            requestAnimationFrame(updateVehicles);
+        }
+
+        // Update info panel
+        function updateInfoPanel(elapsedSeconds) {
+            const container = document.getElementById('vehicleInfoContainer');
+            let html = '';
+
+            Object.keys(vehicles).forEach(key => {
+                const vehicle = vehicles[key];
+                if (vehicle.marker) {
+                    const pos = vehicle.marker.getLatLng();
+                    html += `
+                        <div class="vehicle-info">
+                            <div class="vehicle-name">${vehicle.name}</div>
+                            <div class="info-item">
+                                <span class="label">Lat:</span>
+                                <span>${pos.lat.toFixed(6)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Lng:</span>
+                                <span>${pos.lng.toFixed(6)}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Waktu:</span>
+                                <span>${Math.round(elapsedSeconds)}s</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Button controls
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!isRunning) {
+                isRunning = true;
+                startTime = Date.now();
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                updateVehicles();
+            }
         });
+
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            isRunning = false;
+            Object.keys(vehicles).forEach(key => {
+                vehicles[key].trailPoints = [];
+                vehicles[key].trailLine.setLatLngs([]);
+                if (vehicles[key].marker) {
+                    map.removeLayer(vehicles[key].marker);
+                    vehicles[key].marker = null;
+                }
+            });
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            updateInfoPanel(0);
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = animationSpeed;
+        });
+
+        // Initial info panel
+        updateInfoPanel(0);
     </script>
 </body>
 </html>
